@@ -136,12 +136,12 @@ module Ohm
     def fetch(ids)
       data = nil
 
-      model.synchronize do
+      model.synchronize do |db|
         ids.each do |id|
-          redis.queue("HGETALL", namespace[id])
+          db.queue("HGETALL", namespace[id])
         end
 
-        data = redis.commit
+        data = db.commit
       end
 
       return [] if data.nil?
@@ -240,12 +240,12 @@ module Ohm
     def replace(models)
       ids = models.map(&:id)
 
-      model.synchronize do
-        redis.queue("MULTI")
-        redis.queue("DEL", key)
-        ids.each { |id| redis.queue("RPUSH", key, id) }
-        redis.queue("EXEC")
-        redis.commit
+      model.synchronize do |db|
+        db.queue("MULTI")
+        db.queue("DEL", key)
+        ids.each { |id| db.queue("RPUSH", key, id) }
+        db.queue("EXEC")
+        db.commit
       end
     end
 
@@ -600,12 +600,12 @@ module Ohm
     def replace(models)
       ids = models.map(&:id)
 
-      model.synchronize do
-        redis.queue("MULTI")
-        redis.queue("DEL", key)
-        ids.each { |id| redis.queue("SADD", key, id) }
-        redis.queue("EXEC")
-        redis.commit
+      model.synchronize do |db|
+        db.queue("MULTI")
+        db.queue("DEL", key)
+        ids.each { |id| db.queue("SADD", key, id) }
+        db.queue("EXEC")
+        db.commit
       end
     end
   end
@@ -779,7 +779,16 @@ module Ohm
     end
 
     def self.synchronize(&block)
-      mutex.synchronize(&block)
+      if redis.respond_to?(:with)
+        mutex.synchronize do
+          redis.with(&block)
+        end
+      else
+        mutex.synchronize do
+          block.call(redis)
+        end
+      end
+
     end
 
     # Returns the namespace for all the keys generated using this model.

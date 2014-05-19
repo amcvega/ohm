@@ -779,9 +779,9 @@ module Ohm
     end
 
     def self.synchronize(&block)
-      if redis.respond_to?(:with)
+      if redis.respond_to?(:synchronize)
         mutex.synchronize do
-          redis.with(&block)
+          redis.synchronize(&block)
         end
       else
         mutex.synchronize do
